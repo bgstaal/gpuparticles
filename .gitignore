@@ -1,0 +1,12 @@
+node_modules
+video
+screengrabs
+build
+deploy
+screens*
+npm-debug.log
+*.png
+.env
+.DS_Store
+text
+whitelist-bjorn.txt
