@@ -1,16 +1,21 @@
 console.log("main js!");
 
+const NUM_POINTS = 1e5;
+
 let t = THREE;
 let w = window.innerWidth;
 let h = window.innerHeight;
 let camera, scene, renderer, world;
+let points;
 let pixR =  window.devicePixelRatio ? window.devicePixelRatio : 1;
+
 
 
 (function init ()
 {
 	console.log("init");
 	setupScene();
+	createPointCloud();
 	render();
 
 	window.addEventListener("resize", resize);
@@ -39,6 +44,25 @@ function setupScene ()
 
   	renderer.domElement.setAttribute("id", "scene");
 	document.body.appendChild( renderer.domElement );
+}
+
+function createPointCloud ()
+{
+	let geometry = new THREE.BufferGeometry();
+	let verts = [];
+	let s = 200;
+
+	for (let i = 0; i < NUM_POINTS; i++)
+	{
+		verts.push(s *-.5 + Math.random() * s, s *-.5 + Math.random() * s, s *-.5 + Math.random() * s);
+	}
+
+	geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(verts), 3 ) );
+
+	let material = new THREE.PointsMaterial({ color: 0xFFFFFF, size: 1 });
+	points = new THREE.Points(geometry, material);
+
+	world.add(points);
 }
 
 function render ()
