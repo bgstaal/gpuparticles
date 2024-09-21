@@ -62,7 +62,7 @@ function createPoints ()
 
 	geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(verts), 3 ) );
 
-	let material = createPointsMaterial();
+	let material = createPointsMaterial(NUM_X, NUM_Y);
 	points = new THREE.Points(geometry, material);
 
 	world.add(points);
