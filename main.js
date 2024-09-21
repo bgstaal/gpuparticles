@@ -1,6 +1,6 @@
 import {createPointsMaterial} from './materials.js';
 import GPUComputationRenderer from './GPUComputationRenderer.js';
-import {createPosTargetShader} from './computeShaders.js';
+import {createPosTargetShader, createAccShader, createVelShader, createPosShader} from './computeShaders.js';
 
 const NUM_POINTS = 1e6;
 const NUM_X = Math.ceil(Math.sqrt(NUM_POINTS));
@@ -13,12 +13,13 @@ let camera, scene, renderer, world;
 let points;
 let pixR =  window.devicePixelRatio ? window.devicePixelRatio : 1;
 let time = new Date().getTime();
+let frame = 0;
 let internalTime = 0;
 let gpu;
 let posTargetTex, posTargetVar;
-
-console.log(NUM_X, NUM_Y);
-
+let accTex, accVar;
+let velTex, velVar;
+let posTex, posVar;
 
 (function init ()
 {
@@ -69,18 +70,32 @@ function createPoints ()
 
 	geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(verts), 3 ) );
 
-	let material = createPointsMaterial();
+	let material = createPointsMaterial(NUM_X, NUM_Y);
 	points = new THREE.Points(geometry, material);
 
-	//world.add(points);
+	world.add(points);
 }
 
 function setupGpuComputation ()
 {
 	gpu = new GPUComputationRenderer(NUM_X, NUM_Y, renderer);
 
-	let posTargetTex = gpu.createTexture();
-	let posTargetVar = gpu.addVariable( "posTarget", createPosTargetShader(NUM_X, NUM_Y), posTargetTex);
+	posTargetTex = gpu.createTexture();
+	posTargetVar = gpu.addVariable( "posTarget", createPosTargetShader(), posTargetTex);
+
+	accTex = gpu.createTexture();
+	accVar = gpu.addVariable( "acc", createAccShader(), posTargetTex);
+
+	velTex = gpu.createTexture();
+	velVar = gpu.addVariable( "vel", createVelShader(), posTargetTex);
+
+	posTex = gpu.createTexture();
+	posVar = gpu.addVariable( "pos", createPosShader(), posTargetTex);
+
+
+	gpu.setVariableDependencies(accVar, [posTargetVar, posVar, accVar]);
+	gpu.setVariableDependencies(velVar, [accVar, velVar]);
+	gpu.setVariableDependencies(posVar, [accVar, velVar, posVar, posTargetVar]);
 
 	// Check for completeness
 	var error = gpu.init();
@@ -90,7 +105,7 @@ function setupGpuComputation ()
 	}
 
 	let debugPlane = new t.Mesh(new t.PlaneGeometry(200, 200), new t.MeshBasicMaterial({map: gpu.getCurrentRenderTarget( posTargetVar ).texture, color: 0xFFFFFF, side: THREE.DoubleSide}));
-	scene.add(debugPlane);
+	//scene.add(debugPlane);
 }
 
 function render ()
@@ -100,12 +115,33 @@ function render ()
 	internalTime += delta;
 	time = t;
 
+	let u = posTargetVar.material.uniforms;
+	u.time = {value: internalTime};
+	u.frame = {value: frame};
+
+	u = accVar.material.uniforms;
+	u.time = {value: internalTime};
+
+	u = posVar.material.uniforms;
+	u.time = {value: internalTime};
+	u.frame = {value: frame};
+
 	gpu.compute();
 
-	renderer.render(scene, camera);
-	points.material.uniforms.time.value = internalTime;
+	let pu = points.material.uniforms;
+	pu.time.value = internalTime;
+	pu.posTarget = { value: gpu.getCurrentRenderTarget( posTargetVar ).texture };
+	pu.acc = { value: gpu.getCurrentRenderTarget( accVar ).texture };
+	pu.vel = { value: gpu.getCurrentRenderTarget( velVar ).texture };
+	pu.pos = { value: gpu.getCurrentRenderTarget( posVar ).texture };
+
 	world.rotation.y += .005;
+	world.rotation.x += .003;
+
+	renderer.render(scene, camera);
 	requestAnimationFrame(render);
+
+	frame++;
 }
 
 function resize ()
