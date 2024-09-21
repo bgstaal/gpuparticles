@@ -13,6 +13,7 @@ let camera, scene, renderer, world;
 let points;
 let pixR =  window.devicePixelRatio ? window.devicePixelRatio : 1;
 let time = new Date().getTime();
+let frame = 0;
 let internalTime = 0;
 let gpu;
 let posTargetTex, posTargetVar;
@@ -69,18 +70,18 @@ function createPoints ()
 
 	geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(verts), 3 ) );
 
-	let material = createPointsMaterial();
+	let material = createPointsMaterial(NUM_X, NUM_Y);
 	points = new THREE.Points(geometry, material);
 
-	//world.add(points);
+	world.add(points);
 }
 
 function setupGpuComputation ()
 {
 	gpu = new GPUComputationRenderer(NUM_X, NUM_Y, renderer);
 
-	let posTargetTex = gpu.createTexture();
-	let posTargetVar = gpu.addVariable( "posTarget", createPosTargetShader(NUM_X, NUM_Y), posTargetTex);
+	posTargetTex = gpu.createTexture();
+	posTargetVar = gpu.addVariable( "posTarget", createPosTargetShader(NUM_X, NUM_Y), posTargetTex);
 
 	// Check for completeness
 	var error = gpu.init();
@@ -104,8 +105,11 @@ function render ()
 
 	renderer.render(scene, camera);
 	points.material.uniforms.time.value = internalTime;
+	points.material.uniforms.posTarget.value = gpu.getCurrentRenderTarget(posTargetVar).texture;
 	world.rotation.y += .005;
+
 	requestAnimationFrame(render);
+	frame++;
 }
 
 function resize ()
