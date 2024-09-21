@@ -1,6 +1,7 @@
-console.log("main js!");
+import {createPointsMaterial} from './materials.js';
 
-const NUM_POINTS = 1e5;
+const NUM_POINTS = 1e6;
+const [NUM_X, NUM_Y] = [Math.ceil(Math.sqrt(NUM_POINTS))];
 
 let t = THREE;
 let w = window.innerWidth;
@@ -8,6 +9,8 @@ let h = window.innerHeight;
 let camera, scene, renderer, world;
 let points;
 let pixR =  window.devicePixelRatio ? window.devicePixelRatio : 1;
+let time = new Date().getTime();
+let internalTime = 0;
 
 
 
@@ -15,7 +18,7 @@ let pixR =  window.devicePixelRatio ? window.devicePixelRatio : 1;
 {
 	console.log("init");
 	setupScene();
-	createPointCloud();
+	createPoints();
 	render();
 
 	window.addEventListener("resize", resize);
@@ -40,13 +43,13 @@ function setupScene ()
   	scene.add(world);
 
   	let c = new t.Mesh(new t.BoxGeometry(100, 100, 100), new t.MeshBasicMaterial({color: 0x00FF00, wireframe: true}));
-  	world.add(c);
+  	//world.add(c);
 
   	renderer.domElement.setAttribute("id", "scene");
 	document.body.appendChild( renderer.domElement );
 }
 
-function createPointCloud ()
+function createPoints ()
 {
 	let geometry = new THREE.BufferGeometry();
 	let verts = [];
@@ -59,7 +62,7 @@ function createPointCloud ()
 
 	geometry.setAttribute( 'position', new THREE.BufferAttribute( new Float32Array(verts), 3 ) );
 
-	let material = new THREE.PointsMaterial({ color: 0xFFFFFF, size: 1 });
+	let material = createPointsMaterial();
 	points = new THREE.Points(geometry, material);
 
 	world.add(points);
@@ -67,8 +70,14 @@ function createPointCloud ()
 
 function render ()
 {
+	let t = new Date().getTime();
+	let delta = t - time;
+	internalTime += delta;
+	time = t;
+
 	renderer.render(scene, camera);
-	world.rotation.y += .001;
+	points.material.uniforms.time.value = internalTime;
+	world.rotation.y += .005;
 	requestAnimationFrame(render);
 }
 
