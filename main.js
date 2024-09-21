@@ -1,7 +1,10 @@
 import {createPointsMaterial} from './materials.js';
+import GPUComputationRenderer from './GPUComputationRenderer.js';
+import {createPosTargetShader} from './computeShaders.js';
 
 const NUM_POINTS = 1e6;
-const [NUM_X, NUM_Y] = [Math.ceil(Math.sqrt(NUM_POINTS))];
+const NUM_X = Math.ceil(Math.sqrt(NUM_POINTS));
+const NUM_Y = NUM_X;
 
 let t = THREE;
 let w = window.innerWidth;
@@ -11,7 +14,10 @@ let points;
 let pixR =  window.devicePixelRatio ? window.devicePixelRatio : 1;
 let time = new Date().getTime();
 let internalTime = 0;
+let gpu;
+let posTargetTex, posTargetVar;
 
+console.log(NUM_X, NUM_Y);
 
 
 (function init ()
@@ -19,6 +25,7 @@ let internalTime = 0;
 	console.log("init");
 	setupScene();
 	createPoints();
+	setupGpuComputation();
 	render();
 
 	window.addEventListener("resize", resize);
@@ -65,7 +72,25 @@ function createPoints ()
 	let material = createPointsMaterial();
 	points = new THREE.Points(geometry, material);
 
-	world.add(points);
+	//world.add(points);
+}
+
+function setupGpuComputation ()
+{
+	gpu = new GPUComputationRenderer(NUM_X, NUM_Y, renderer);
+
+	let posTargetTex = gpu.createTexture();
+	let posTargetVar = gpu.addVariable( "posTarget", createPosTargetShader(NUM_X, NUM_Y), posTargetTex);
+
+	// Check for completeness
+	var error = gpu.init();
+
+	if ( error !== null ) {
+	  console.error( error );
+	}
+
+	let debugPlane = new t.Mesh(new t.PlaneGeometry(200, 200), new t.MeshBasicMaterial({map: gpu.getCurrentRenderTarget( posTargetVar ).texture, color: 0xFFFFFF, side: THREE.DoubleSide}));
+	scene.add(debugPlane);
 }
 
 function render ()
@@ -74,6 +99,8 @@ function render ()
 	let delta = t - time;
 	internalTime += delta;
 	time = t;
+
+	gpu.compute();
 
 	renderer.render(scene, camera);
 	points.material.uniforms.time.value = internalTime;
